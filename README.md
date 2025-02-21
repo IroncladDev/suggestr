@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Draft name: **Nostritution**
 
-## Getting Started
+Self-hosted nostr post proposal system
 
-First, run the development server:
+## Problem
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Running low on sats? Other people can pay YOU to post from your nostr account
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. A nostr user identified by their npub creates a proposal for the owner to post
+2. They pay an upfront payment of `${X}% * (base + bribery fees)`
+3. They paste in their NWC connection string to complete the latter part of the payment `(base + bribery fees) - (${X}% * (base + bribery fees))`
+4. The owner approves or rejects the proposal (they can add a comment to the rejection)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+5. **If approved**
+6. A request is made to the NWC string and the user is charged
+7. If successful, the user's proposal is posted
+8. The user is notified via a nostr dm
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+5. **If rejected**
+6. The suggestion moves to the hall of shame 
+7. The user is notified via a nostr dm with a special link
+8. They can respond to the owner's rejection comment
 
-## Learn More
+## Pages
+- Hall of shame for rejected post proposals
+- Pending posts shows current proposals
+- Approved posts show posts that have been approved
+- Index page shows info
+    - Fetches the user profile from nostr relays via user npub
+    - Do not expose nsec to client side
+- Admin Page
+    - Single button to sign a nostr event to log in
+    - List of all pending posts
+    - Owner can approve or reject a post
+    - For approving a post, single button
+    - For rejecting a post, the owner is prompted for a reply comment
 
-To learn more about Next.js, take a look at the following resources:
+## .env Config Options
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `NOSTR_NSEC` - The owner's nsec
+- `REDIS_DB_URL` - Redis database URL
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Config Options (config.toml / json)
 
-## Deploy on Vercel
+- `UPFRONT_RATE` - Number from 0-1 for the upfront payment fee
+- `DISCLOSURE_TEMPLATE` - Optional. Template string containing `{url}` so that the owner can disclose that they didn't post the post. If not provided, no disclosure is attached.
+- `BASE_FEE` - The base fee (in sats) for posting a proposal
+- `RELAYS` - List of nostr relays to use
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## DB Schema (Redis KV)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- admin_session: `String | None`
+- posts: `Vec<Post>`
+    - id: `String`
+    - status: `PostStatus`
+    - content: `String`
+    - created_at: `DateTime`
+    - updated_at: `DateTime`
+    - owner_rejection_comment: `String | None`
+    - user_rejection_reply: `String | None`
+    - user_npub: `String`
+    - user_nwc: `String`
+
+- `PostStatus` - enum: `"pending" | "approved" | "rejected"`
