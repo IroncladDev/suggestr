@@ -27,8 +27,10 @@ export const appConfig: AppConfigType = {
    * {content} is the content the user suggested you post
    * {user} is the user's handle in the format @username
    * {reason} is the reason or comment why you rejected the suggestion
+   * {responseUrl} is a link where they can repond to your rejection comment, driving the final nail into the coffin
+   * {url} is the site URL
    */
-  rejectionTemplate: `Hey {user}, I just rejected your suggestion to post "{content}" from my nostr account for this reason: {reason}`,
+  rejectionTemplate: `> {content}\n\n{reason}\n\nIf you want to post a public response to me rejecting your suggestion, you an do it at {responseUrl} and it will appear in the [Hall of Shame]({url}/hall-of-shame)`,
   /**
    * Sent as a Nostr DM to the user when you approve their suggestion
    * {content} is the content the user suggested you post

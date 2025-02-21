@@ -17,6 +17,7 @@ import {
   isInvoicePaid,
   lightningAddress,
 } from "./lightning";
+import { promiseWithTimeout } from "./utils";
 import { appConfig } from "@/config";
 import { Invoice } from "@getalby/lightning-tools";
 import { Suggestion, Invoice as DBInvoice } from "@prisma/client";
@@ -101,8 +102,8 @@ export async function requestPostUpfront(
         },
       },
       include: {
-        upfrontInvoice: true
-      }
+        upfrontInvoice: true,
+      },
     });
 
     return { success: true, suggestion };
@@ -125,7 +126,7 @@ export async function pollRequestPaymentStatus(
   });
 
   if (!suggestion) {
-    throw new Error("Request not found");
+    return "expired"
   }
 
   const invoice = new Invoice({
@@ -226,7 +227,7 @@ export async function pollCompletionInvoice(
   });
 
   if (!completionPayment) {
-    throw new Error("Completion payment not found");
+    return "expired";
   }
 
   const isPaid = await isInvoicePaid(completionPayment.invoice);
@@ -354,13 +355,13 @@ export async function adminApproveRequest(
       comment: "Suggestr posting fee",
     });
 
-    const { preimage } = await nwcClient.payInvoice({
+    const payRes = await promiseWithTimeout(nwcClient.payInvoice({
       invoice: invoice.paymentRequest,
-    });
+    }), 10000).catch(() => null);
 
     const userHandle = await makeHandleFromPubkey(suggestion.userPubkey);
 
-    if (!preimage) {
+    if (!payRes?.preimage) {
       await prisma.suggestion.update({
         where: {
           id: suggestionId,
@@ -419,21 +420,21 @@ export async function adminRejectRequest(
   reason: string,
 ): Promise<{ success: true } | { success: false; message: string }> {
   try {
-    const suggesstion = await prisma.suggestion.findUnique({
+    const suggestion = await prisma.suggestion.findUnique({
       where: {
         id: suggestionId,
       },
     });
 
-    if (!suggesstion) {
+    if (!suggestion) {
       throw new Error("Request not found");
     }
 
-    if (suggesstion.status !== "pending") {
+    if (suggestion.status !== "pending") {
       throw new Error("Request is not pending");
     }
 
-    const userHandle = await makeHandleFromPubkey(suggesstion.userPubkey);
+    const userHandle = await makeHandleFromPubkey(suggestion.userPubkey);
 
     await prisma.suggestion.update({
       where: {
@@ -446,11 +447,19 @@ export async function adminRejectRequest(
     });
 
     await messageNpub(
-      suggesstion.userPubkey,
+      suggestion.userPubkey,
       appConfig.rejectionTemplate
-        .replaceAll("{content}", suggesstion.content)
+        .replaceAll("{content}", suggestion.content)
         .replaceAll("{user}", userHandle)
-        .replaceAll("{reason}", reason),
+        .replaceAll("{reason}", reason)
+        .replaceAll("{url}", process.env.NEXT_PUBLIC_SITE_URL as string)
+        .replaceAll(
+          "{responseUrl}",
+          new URL(
+            "/respond/" + suggestion.id,
+            process.env.NEXT_PUBLIC_SITE_URL as string,
+          ).toString(),
+        ),
     );
     return { success: true };
   } catch (error) {
@@ -475,4 +484,48 @@ export async function fetchSuggestions() {
   });
 
   return suggestions;
+}
+
+export async function respondToRejection(
+  suggestionId: string,
+  event: NostrEvent,
+): Promise<{ success: true } | { success: false; message: string }> {
+  try {
+    const isValid = verifyEvent(event);
+
+    if (!isValid) {
+      throw new Error("Invalid event");
+    }
+
+    const suggestion = await prisma.suggestion.findUnique({
+      where: {
+        id: suggestionId,
+      },
+    });
+
+    if (!suggestion) {
+      throw new Error("Request not found");
+    }
+
+    if (suggestion.status !== "rejected") {
+      throw new Error("Request must be rejected for you to respond");
+    }
+
+    if (event.pubkey !== suggestion?.userPubkey) {
+      throw new Error("Event pubkey does not match owner pubkey");
+    }
+
+    await prisma.suggestion.update({
+      where: {
+        id: suggestionId,
+      },
+      data: {
+        userRejectionReply: event.content,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: (error as Error).message };
+  }
 }
