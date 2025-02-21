@@ -8,6 +8,7 @@ import {
   getEventHash,
   finalizeEvent,
   nip04,
+  SimplePool,
 } from "nostr-tools";
 
 if (!process.env.NOSTR_NSEC) {
@@ -86,4 +87,21 @@ export async function messageNpub(recipientPubkey: string, text: string) {
   const signedEvent = finalizeEvent(event, ownerSecretKey);
 
   await publishEventToRelays(signedEvent);
+}
+
+export async function makeHandleFromPubkey(pubkey: string) {
+  const pool = new SimplePool();
+
+  const event = await pool.get(appConfig.relays, {
+    kinds: [0],
+    authors: [pubkey],
+  });
+
+  if (!event) return "{user}";
+
+  const metadata = JSON.parse(event.content);
+
+  pool.close(appConfig.relays);
+
+  return "@" + metadata.name;
 }

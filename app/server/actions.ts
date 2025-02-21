@@ -2,14 +2,24 @@
 
 import { NostrEvent, verifyEvent } from "nostr-tools";
 import prisma from "./prisma";
-import { messageNpub, ownerNpub, ownerPubKey, postToRelays } from "./nostr";
+import {
+  makeHandleFromPubkey,
+  messageNpub,
+  ownerNpub,
+  ownerPubKey,
+  postToRelays,
+} from "./nostr";
 import { nwc } from "@getalby/sdk";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { lightningAddress } from "./lightning";
+import {
+  hasInvoiceExpired,
+  isInvoicePaid,
+  lightningAddress,
+} from "./lightning";
 import { appConfig } from "@/config";
 import { Invoice } from "@getalby/lightning-tools";
-import { Suggestion } from "@prisma/client";
+import { Suggestion, Invoice as DBInvoice } from "@prisma/client";
 
 export async function adminNostrLogin(
   event: NostrEvent,
@@ -39,7 +49,7 @@ export async function adminNostrLogin(
 }
 
 const requestPostUpfrontSchema = z.object({
-  additionalAmount: z.number().positive().int().optional(),
+  additionalAmount: z.number().int().optional(),
   content: z.string(),
   pubKey: z.string(),
   nwc: z.string(),
@@ -48,7 +58,7 @@ const requestPostUpfrontSchema = z.object({
 export async function requestPostUpfront(
   input: z.infer<typeof requestPostUpfrontSchema>,
 ): Promise<
-  | { success: true; suggestion: Suggestion }
+  | { success: true; suggestion: Suggestion & { upfrontInvoice: DBInvoice } }
   | { success: false; message: string }
 > {
   try {
@@ -62,13 +72,9 @@ export async function requestPostUpfront(
     const totalAmountSats = appConfig.baseFee + (additionalAmount || 0);
     const upfrontAmount = Math.floor(totalAmountSats * appConfig.upfrontRate);
 
-    const nwcClient = new nwc.NWCClient({
-      nostrWalletConnectUrl: nwcUrl,
-    });
+    const parsed = nwc.NWCClient.parseWalletConnectUrl(nwcUrl);
 
-    const info = await nwcClient.getInfo();
-
-    if (!info) {
+    if (!parsed) {
       throw new Error("Invalid nwc url");
     }
 
@@ -77,6 +83,8 @@ export async function requestPostUpfront(
       comment: "Upfront payment for Nositute",
     });
 
+    await invoice.verifyPayment();
+
     const suggestion = await prisma.suggestion.create({
       data: {
         status: "pending",
@@ -84,12 +92,22 @@ export async function requestPostUpfront(
         additionalAmount,
         userPubkey: pubKey,
         userNWC: nwcUrl,
-        upfrontInvoice: invoice.paymentRequest,
+        upfrontInvoice: {
+          create: {
+            pr: invoice.paymentRequest,
+            preimage: invoice.preimage,
+            verify: invoice.verify,
+          },
+        },
       },
+      include: {
+        upfrontInvoice: true
+      }
     });
 
     return { success: true, suggestion };
   } catch (err) {
+    console.error(err);
     return { success: false, message: (err as Error).message };
   }
 }
@@ -101,30 +119,38 @@ export async function pollRequestPaymentStatus(
     where: {
       id: suggestionId,
     },
+    include: {
+      upfrontInvoice: true,
+    },
   });
 
   if (!suggestion) {
     throw new Error("Request not found");
   }
 
-  const invoice = new Invoice({ pr: suggestion.upfrontInvoice });
+  const invoice = new Invoice({
+    pr: suggestion.upfrontInvoice.pr,
+    preimage: suggestion.upfrontInvoice.preimage ?? undefined,
+    verify: suggestion.upfrontInvoice.verify ?? undefined,
+  });
 
+  // isPaid throws an error instead of returning false
   const isPaid = await invoice.isPaid();
 
   if (isPaid) {
-    await prisma.suggestion.update({
+    await prisma.invoice.update({
       where: {
-        id: suggestionId,
+        id: suggestion.upfrontInvoiceId,
       },
       data: {
-        upfrontPaid: true,
+        paid: true,
       },
     });
 
     return "paid";
   }
 
-  if (invoice.hasExpired()) return "expired";
+  if (hasInvoiceExpired(suggestion.upfrontInvoice)) return "expired";
 
   return "pending";
 }
@@ -139,13 +165,16 @@ export async function reRequestUpfrontInvoice(
       where: {
         id: suggestionId,
       },
+      include: {
+        upfrontInvoice: true,
+      },
     });
 
     if (!suggestion) {
       throw new Error("Request not found");
     }
 
-    if (suggestion.upfrontPaid) {
+    if (suggestion.upfrontInvoice.paid) {
       throw new Error("Upfront invoice already paid");
     }
 
@@ -158,13 +187,15 @@ export async function reRequestUpfrontInvoice(
       comment: "Upfront payment for Nositute",
     });
 
-    await prisma.suggestion.update({
+    await prisma.invoice.update({
       where: {
-        id: suggestionId,
+        id: suggestion.upfrontInvoiceId,
       },
       data: {
-        upfrontInvoice: invoice.paymentRequest,
-        upfrontPaid: false,
+        pr: invoice.paymentRequest,
+        preimage: invoice.preimage,
+        verify: invoice.verify,
+        paid: false,
       },
     });
 
@@ -184,10 +215,13 @@ export async function pollCompletionInvoice(
 
   const completionPayment = await prisma.completionPayment.findFirst({
     where: {
-      invoice: paymentRequest,
+      invoice: {
+        pr: paymentRequest,
+      },
     },
     include: {
       suggestion: true,
+      invoice: true,
     },
   });
 
@@ -195,7 +229,11 @@ export async function pollCompletionInvoice(
     throw new Error("Completion payment not found");
   }
 
-  const isPaid = await invoice.isPaid();
+  const isPaid = await isInvoicePaid(completionPayment.invoice);
+
+  const userHandle = await makeHandleFromPubkey(
+    completionPayment.suggestion.userPubkey,
+  );
 
   if (isPaid) {
     await prisma.suggestion.update({
@@ -216,14 +254,14 @@ export async function pollCompletionInvoice(
       completionPayment.suggestion.userPubkey,
       appConfig.approvalTemplate
         .replaceAll("{content}", completionPayment.suggestion.content)
-        .replaceAll("{user}", completionPayment.suggestion.userPubkey),
+        .replaceAll("{user}", userHandle),
     );
     await postToRelays(
       completionPayment.suggestion.content,
       appConfig.disclosureTemplate
         ? appConfig.disclosureTemplate
           .replaceAll("{url}", process.env.NEXT_PUBLIC_SITE_URL as string)
-          .replaceAll("{user}", completionPayment.suggestion.userPubkey)
+          .replaceAll("{user}", userHandle)
         : undefined,
     );
 
@@ -261,15 +299,17 @@ export async function reRequestCompletionInvoice(
 
     const invoice = await lightningAddress.requestInvoice({
       satoshi: remainingAmount,
-      comment: "Nostitute posting fee",
+      comment: "Sugestr posting fee",
     });
 
-    await prisma.completionPayment.update({
+    await prisma.invoice.update({
       where: {
-        id: completionPaymentId,
+        id: completionPayment.invoiceId,
       },
       data: {
-        invoice: invoice.paymentRequest,
+        pr: invoice.paymentRequest,
+        preimage: invoice.preimage,
+        verify: invoice.verify,
       },
     });
 
@@ -311,12 +351,14 @@ export async function adminApproveRequest(
 
     const invoice = await lightningAddress.requestInvoice({
       satoshi: remainingAmount,
-      comment: "Nostitute posting fee",
+      comment: "Suggestr posting fee",
     });
 
     const { preimage } = await nwcClient.payInvoice({
       invoice: invoice.paymentRequest,
     });
+
+    const userHandle = await makeHandleFromPubkey(suggestion.userPubkey);
 
     if (!preimage) {
       await prisma.suggestion.update({
@@ -331,7 +373,7 @@ export async function adminApproveRequest(
         suggestion.userPubkey,
         appConfig.stagnantTemplate
           .replaceAll("{content}", suggestion.content)
-          .replaceAll("{user}", suggestion.userPubkey)
+          .replaceAll("{user}", userHandle)
           .replaceAll(
             "{url}",
             new URL(
@@ -356,14 +398,14 @@ export async function adminApproveRequest(
       suggestion.userPubkey,
       appConfig.approvalTemplate
         .replaceAll("{content}", suggestion.content)
-        .replaceAll("{user}", suggestion.userPubkey),
+        .replaceAll("{user}", userHandle),
     );
     await postToRelays(
       suggestion.content,
       appConfig.disclosureTemplate
         ? appConfig.disclosureTemplate
           .replaceAll("{url}", process.env.NEXT_PUBLIC_SITE_URL as string)
-          .replaceAll("{user}", suggestion.userPubkey)
+          .replaceAll("{user}", userHandle)
         : undefined,
     );
     return { success: true };
@@ -391,6 +433,8 @@ export async function adminRejectRequest(
       throw new Error("Request is not pending");
     }
 
+    const userHandle = await makeHandleFromPubkey(suggesstion.userPubkey);
+
     await prisma.suggestion.update({
       where: {
         id: suggestionId,
@@ -405,10 +449,30 @@ export async function adminRejectRequest(
       suggesstion.userPubkey,
       appConfig.rejectionTemplate
         .replaceAll("{content}", suggesstion.content)
-        .replaceAll("{user}", suggesstion.userPubkey),
+        .replaceAll("{user}", userHandle)
+        .replaceAll("{reason}", reason),
     );
     return { success: true };
   } catch (error) {
     return { success: false, message: (error as Error).message };
   }
+}
+
+export async function fetchSuggestions() {
+  const suggestions = await prisma.suggestion.findMany({
+    where: {
+      status: "pending",
+      upfrontInvoice: {
+        paid: true,
+      },
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    include: {
+      upfrontInvoice: true,
+    },
+  });
+
+  return suggestions;
 }

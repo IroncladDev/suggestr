@@ -32,7 +32,7 @@ export default async function CompletionPage({ params }: { params: { id: string 
 
     const invoice = await lightningAddress.requestInvoice({
       satoshi: remainingAmount,
-      comment: "Nostitute posting fee",
+      comment: "Suggestr posting fee",
     });
 
     payment = await prisma.completionPayment.create({

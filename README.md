@@ -1,6 +1,6 @@
-# Draft name: **Nostritution**
+# Suggestr
 
-Self-hosted nostr post proposal system
+Self-hosted nostr post suggestion system
 
 ## Problem
 

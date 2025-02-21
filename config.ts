@@ -19,15 +19,16 @@ export const appConfig: AppConfigType = {
   /**
    * Optional. Sent as a reply on every suggestion you approve that gets posted to let others know it wasn't you.
    * {user} is the user's handle in the format @username
-   * {url} is the site URL where other users can find your nostitute website and suggest posts
+   * {url} is the site URL where other users can find your suggestr website and suggest posts
    */
   disclosureTemplate: `Suggested by {user} on {url}`,
   /**
    * Sent as a Nostr DM to the user when you reject their suggestion
    * {content} is the content the user suggested you post
    * {user} is the user's handle in the format @username
+   * {reason} is the reason or comment why you rejected the suggestion
    */
-  rejectionTemplate: `Hey {user}, I just rejected your suggestion to post "{content}" from my nostr account`,
+  rejectionTemplate: `Hey {user}, I just rejected your suggestion to post "{content}" from my nostr account for this reason: {reason}`,
   /**
    * Sent as a Nostr DM to the user when you approve their suggestion
    * {content} is the content the user suggested you post
