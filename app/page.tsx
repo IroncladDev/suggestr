@@ -1,15 +1,19 @@
-"use client";
+import { ownerNpub, ownerPubKey } from "./server/nostr";
+import "./home.css";
+import HomeContent from "./home";
+import { getProfileFromPubkey } from "./shared/nostr";
 
-export default function Home() {
-  const handleClick = async () => {
-    const res = await window.nostr.getPublicKey();
+export default async function Home() {
+  const profile = await getProfileFromPubkey(ownerPubKey);
 
-    console.log(res);
-  }
+  if (!profile)
+    throw new Error(
+      "Failed to get nostr profile. Try adding some more relays in config.ts",
+    );
 
   return (
-    <div>
-      <button onClick={handleClick}>click</button>
-    </div>
+    <HomeContent profile={profile} ownerNpub={ownerNpub} />
   );
 }
+
+export const dynamic = "force-static";

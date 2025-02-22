@@ -1,0 +1,22 @@
+#admin-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  align-items: center;
+  overflow-y: auto;
+  gap: 16px;
+
+  #admin-header {
+    display: flex;
+    flex-direction: column;
+    max-width: 700px;
+  }
+
+  #admin-list {
+    display: flex;
+    flex-direction: column;
+    max-width: 700px;
+    width: 100%;
+    gap: 16px;
+  }
+}

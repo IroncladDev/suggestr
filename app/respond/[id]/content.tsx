@@ -1,5 +1,6 @@
 "use client";
 
+import SuggestionTimeline from "@/app/components/suggestion-timeline";
 import { respondToRejection } from "@/app/server/actions";
 import { Suggestion } from "@prisma/client";
 import { getEventHash, UnsignedEvent, Event } from "nostr-tools";
@@ -7,8 +8,12 @@ import { useState } from "react";
 
 export default function RespondContent({
   suggestion,
+  name,
+  ownerNpub,
 }: {
   suggestion: Suggestion;
+  name: string;
+  ownerNpub: string;
 }) {
   const [response, setResponse] = useState("");
 
@@ -37,15 +42,23 @@ export default function RespondContent({
       return;
     }
 
-    alert("Responded")
-  }
+    alert("Responded");
+  };
 
   return (
     <div>
       <div>
         <div>{suggestion.content}</div>
         <div>{suggestion.ownerRejectionComment}</div>
-        <textarea value={response} onChange={(e) => setResponse(e.target.value)}></textarea>
+        <SuggestionTimeline
+          suggestion={suggestion}
+          ownerNpub={ownerNpub}
+          name={name}
+        />
+        <textarea
+          value={response}
+          onChange={(e) => setResponse(e.target.value)}
+        ></textarea>
         <button onClick={handleRespond}>Respond</button>
       </div>
     </div>

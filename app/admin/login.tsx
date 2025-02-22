@@ -24,18 +24,12 @@ export default function AdminLogin() {
       pubkey,
     };
 
-    console.log(pubkey, evt)
-
     const event: Omit<Event, "sig"> = {
       ...evt,
       id: getEventHash(evt),
     };
 
-    console.log(event)
-
     const signedEvent: Event = await window.nostr.signEvent(event);
-
-    console.log(signedEvent)
 
     const res = await adminNostrLogin(signedEvent);
 

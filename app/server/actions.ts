@@ -2,13 +2,7 @@
 
 import { NostrEvent, verifyEvent } from "nostr-tools";
 import prisma from "./prisma";
-import {
-  makeHandleFromPubkey,
-  messageNpub,
-  ownerNpub,
-  ownerPubKey,
-  postToRelays,
-} from "./nostr";
+import { messageNpub, ownerNpub, ownerPubKey, postToRelays } from "./nostr";
 import { nwc } from "@getalby/sdk";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -21,6 +15,7 @@ import { promiseWithTimeout } from "./utils";
 import { appConfig } from "@/config";
 import { Invoice } from "@getalby/lightning-tools";
 import { Suggestion, Invoice as DBInvoice } from "@prisma/client";
+import { makeHandleFromPubkey } from "../shared/nostr";
 
 export async function adminNostrLogin(
   event: NostrEvent,
@@ -79,9 +74,10 @@ export async function requestPostUpfront(
       throw new Error("Invalid nwc url");
     }
 
+    await lightningAddress.fetch();
     const invoice = await lightningAddress.requestInvoice({
       satoshi: upfrontAmount,
-      comment: "Upfront payment for Nositute",
+      comment: "Upfront payment for Suggestr",
     });
 
     await invoice.verifyPayment();
@@ -126,7 +122,7 @@ export async function pollRequestPaymentStatus(
   });
 
   if (!suggestion) {
-    return "expired"
+    return "expired";
   }
 
   const invoice = new Invoice({
@@ -154,59 +150,6 @@ export async function pollRequestPaymentStatus(
   if (hasInvoiceExpired(suggestion.upfrontInvoice)) return "expired";
 
   return "pending";
-}
-
-export async function reRequestUpfrontInvoice(
-  suggestionId: string,
-): Promise<
-  { success: true; invoice: string } | { success: false; message: string }
-> {
-  try {
-    const suggestion = await prisma.suggestion.findUnique({
-      where: {
-        id: suggestionId,
-      },
-      include: {
-        upfrontInvoice: true,
-      },
-    });
-
-    if (!suggestion) {
-      throw new Error("Request not found");
-    }
-
-    if (suggestion.upfrontInvoice.paid) {
-      throw new Error("Upfront invoice already paid");
-    }
-
-    const totalAmountSats =
-      appConfig.baseFee + (suggestion.additionalAmount || 0);
-    const upfrontAmount = Math.floor(totalAmountSats * appConfig.upfrontRate);
-
-    const invoice = await lightningAddress.requestInvoice({
-      satoshi: upfrontAmount,
-      comment: "Upfront payment for Nositute",
-    });
-
-    await prisma.invoice.update({
-      where: {
-        id: suggestion.upfrontInvoiceId,
-      },
-      data: {
-        pr: invoice.paymentRequest,
-        preimage: invoice.preimage,
-        verify: invoice.verify,
-        paid: false,
-      },
-    });
-
-    return {
-      success: true,
-      invoice: invoice.paymentRequest,
-    };
-  } catch (error) {
-    return { success: false, message: (error as Error).message };
-  }
 }
 
 export async function pollCompletionInvoice(
@@ -261,8 +204,8 @@ export async function pollCompletionInvoice(
       completionPayment.suggestion.content,
       appConfig.disclosureTemplate
         ? appConfig.disclosureTemplate
-          .replaceAll("{url}", process.env.NEXT_PUBLIC_SITE_URL as string)
-          .replaceAll("{user}", userHandle)
+            .replaceAll("{url}", process.env.NEXT_PUBLIC_SITE_URL as string)
+            .replaceAll("{user}", userHandle)
         : undefined,
     );
 
@@ -298,6 +241,7 @@ export async function reRequestCompletionInvoice(
     const upfrontAmount = Math.floor(totalAmountSats * appConfig.upfrontRate);
     const remainingAmount = totalAmountSats - upfrontAmount;
 
+    await lightningAddress.fetch();
     const invoice = await lightningAddress.requestInvoice({
       satoshi: remainingAmount,
       comment: "Sugestr posting fee",
@@ -350,14 +294,18 @@ export async function adminApproveRequest(
     const upfrontAmount = Math.floor(totalAmountSats * appConfig.upfrontRate);
     const remainingAmount = totalAmountSats - upfrontAmount;
 
+    await lightningAddress.fetch();
     const invoice = await lightningAddress.requestInvoice({
       satoshi: remainingAmount,
       comment: "Suggestr posting fee",
     });
 
-    const payRes = await promiseWithTimeout(nwcClient.payInvoice({
-      invoice: invoice.paymentRequest,
-    }), 10000).catch(() => null);
+    const payRes = await promiseWithTimeout(
+      nwcClient.payInvoice({
+        invoice: invoice.paymentRequest,
+      }),
+      10000,
+    ).catch(() => null);
 
     const userHandle = await makeHandleFromPubkey(suggestion.userPubkey);
 
@@ -405,8 +353,8 @@ export async function adminApproveRequest(
       suggestion.content,
       appConfig.disclosureTemplate
         ? appConfig.disclosureTemplate
-          .replaceAll("{url}", process.env.NEXT_PUBLIC_SITE_URL as string)
-          .replaceAll("{user}", userHandle)
+            .replaceAll("{url}", process.env.NEXT_PUBLIC_SITE_URL as string)
+            .replaceAll("{user}", userHandle)
         : undefined,
     );
     return { success: true };
@@ -467,7 +415,7 @@ export async function adminRejectRequest(
   }
 }
 
-export async function fetchSuggestions() {
+export async function fetchPendingSuggestions() {
   const suggestions = await prisma.suggestion.findMany({
     where: {
       status: "pending",
@@ -484,6 +432,27 @@ export async function fetchSuggestions() {
   });
 
   return suggestions;
+}
+
+export async function fetchRejectedSuggestions() {
+  return await prisma.suggestion.findMany({
+    where: {
+      status: "rejected",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      id: true,
+      content: true,
+      userRejectionReply: true,
+      status: true,
+      additionalAmount: true,
+      createdAt: true,
+      ownerRejectionComment: true,
+      userPubkey: true,
+    },
+  });
 }
 
 export async function respondToRejection(

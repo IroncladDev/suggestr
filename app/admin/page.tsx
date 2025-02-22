@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import AdminLogin from "./login";
 import AdminContent from "./content";
-import { fetchSuggestions } from "../server/actions";
+import { fetchPendingSuggestions } from "../server/actions";
 
 export default async function AdminPage() {
   const cookie = await cookies();
@@ -13,7 +13,7 @@ export default async function AdminPage() {
     return <AdminLogin />;
   }
 
-  const pendingSuggestions = await fetchSuggestions();
+  const pendingSuggestions = await fetchPendingSuggestions();
 
   return <AdminContent suggestions={pendingSuggestions} />;
 }

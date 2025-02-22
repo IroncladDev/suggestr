@@ -2,9 +2,16 @@
 
 Self-hosted nostr post suggestion system
 
-## Problem
+# TODO: 
+- confirm and respond pages
 
-Running low on sats? Other people can pay YOU to post from your nostr account
+- animations
+- transparent background, kali bg
+- DEVPOST SUBMISSION
+- dual deployment
+- self hosting instructions
+
+## Problem
 
 1. A nostr user identified by their npub creates a proposal for the owner to post
 2. They pay an upfront payment of `${X}% * (base + bribery fees)`

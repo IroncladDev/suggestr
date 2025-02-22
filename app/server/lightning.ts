@@ -9,8 +9,6 @@ export const lightningAddress = new LightningAddress(
   process.env.LIGHTNING_ADDRESS,
 );
 
-lightningAddress.fetch();
-
 export const fromInvoice = (data: DBInvoice) => new Invoice({
     pr: data.pr,
     verify: data.verify ?? undefined,

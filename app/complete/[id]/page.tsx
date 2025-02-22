@@ -6,11 +6,13 @@ import { lightningAddress } from "@/app/server/lightning";
 export default async function CompletionPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
+
   const suggestion = await prisma.suggestion.findUnique({
     where: {
-      id: params.id,
+      id,
     },
   });
 
@@ -28,7 +30,7 @@ export default async function CompletionPage({
 
   let payment = await prisma.completionPayment.findFirst({
     where: {
-      suggestionId: params.id,
+      suggestionId: id,
     },
     include: {
       invoice: true,
@@ -41,6 +43,7 @@ export default async function CompletionPage({
     const upfrontAmount = Math.floor(totalAmountSats * appConfig.upfrontRate);
     const remainingAmount = totalAmountSats - upfrontAmount;
 
+    await lightningAddress.fetch();
     const invoice = await lightningAddress.requestInvoice({
       satoshi: remainingAmount,
       comment: "Suggestr posting fee",
@@ -56,14 +59,16 @@ export default async function CompletionPage({
 
     payment = await prisma.completionPayment.create({
       data: {
-        suggestionId: params.id,
+        suggestionId: id,
         invoiceId: createdInvoice.id,
       },
       include: {
         invoice: true,
-      }
+      },
     });
   }
 
   return <CompletionContent suggestion={suggestion} payment={payment} />;
 }
+
+export const dynamic = "force-dynamic";

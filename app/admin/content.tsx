@@ -2,7 +2,13 @@
 
 import { Suggestion } from "@prisma/client";
 import { useState } from "react";
-import { adminApproveRequest, adminRejectRequest, fetchSuggestions } from "../server/actions";
+import {
+  adminApproveRequest,
+  adminRejectRequest,
+  fetchPendingSuggestions,
+} from "../server/actions";
+import SuggestionTimeline from "../components/suggestion-timeline";
+import "./admin.css";
 
 export default function AdminContent({
   suggestions: initialSuggestions,
@@ -13,12 +19,16 @@ export default function AdminContent({
     useState<Suggestion[]>(initialSuggestions);
 
   const handleRefresh = async () => {
-    setSuggestions(await fetchSuggestions());
+    setSuggestions(await fetchPendingSuggestions());
   };
 
   return (
-    <div>
-      <div>
+    <div id="admin-content">
+      <div id="admin-header">
+        <h1>Admin Dashboard</h1>
+        <p>Manage all pending suggestions made by users in which the upfront payment has successfully been paid</p>
+      </div>
+      <div id="admin-list">
         {suggestions.map((suggestion) => (
           <SuggestionItem
             key={suggestion.id}
@@ -38,26 +48,40 @@ function SuggestionItem({
   suggestion: Suggestion;
   onRefresh: () => void;
 }) {
+  const [loading, setLoading] = useState(false);
+
   const handleReject = async () => {
+    setLoading(true);
     const reason = prompt("Enter a reason for rejection");
 
-    if (!reason) return;
+    if (!reason) {
+      setLoading(false);
+      return;
+    }
 
     await adminRejectRequest(suggestion.id, reason);
     onRefresh();
   };
 
   const handleApprove = async () => {
+    setLoading(true);
     await adminApproveRequest(suggestion.id);
     onRefresh();
   };
 
   return (
-    <div>
-      <p>{suggestion.content}</p>
-      <div>{suggestion.userPubkey}</div>
-      <button onClick={handleReject}>Reject</button>
-      <button onClick={handleApprove}>Approve</button>
-    </div>
+    <SuggestionTimeline suggestion={suggestion}>
+      <ul>
+        <li>Bribery Fee: {suggestion.additionalAmount} SATS</li>
+      </ul>
+      <div className="buttons">
+        <button onClick={handleReject} disabled={loading}>
+          Reject
+        </button>
+        <button onClick={handleApprove} disabled={loading}>
+          Approve
+        </button>
+      </div>
+    </SuggestionTimeline>
   );
 }
