@@ -2,7 +2,7 @@
 
 import { NostrEvent, verifyEvent } from "nostr-tools";
 import prisma from "./prisma";
-import { messageNpub, ownerNpub, ownerPubKey, postToRelays } from "./nostr";
+import { messageNpub, ownerPubKey, postToRelays } from "./nostr";
 import { nwc } from "@getalby/sdk";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -27,8 +27,6 @@ export async function adminNostrLogin(
     if (!isValid) {
       throw new Error("Invalid event");
     }
-
-    console.log(ownerPubKey, ownerNpub);
 
     if (event.pubkey !== ownerPubKey) {
       throw new Error("Event pubkey does not match owner pubkey");
