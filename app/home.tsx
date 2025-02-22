@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import Header from "./components/header";
 import RequestForm from "./components/request";
 import HallOfShame from "./components/hall-of-shame";
@@ -31,6 +31,14 @@ export default function HomeContent({
   ownerNpub: string;
 }) {
   const [tab, setTab] = useState(0);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+
+    if (hash === "#hall-of-shame") {
+      setTab(1);
+    }
+  }, [])
 
   return (
     <ProfileContext.Provider value={{ ...profile, ownerNpub }}>

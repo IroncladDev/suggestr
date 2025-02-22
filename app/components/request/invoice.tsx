@@ -79,7 +79,10 @@ export default function RequestInvoice({
   return (
     <div className="request-step">
       {status === "pending" && (
-        <div className="request-step-content-row">
+        <div
+          className="request-step-content-row"
+          style={{ alignItems: "flex-start" }}
+        >
           <QRCode
             value={suggestion.upfrontInvoice.pr}
             size={256}
@@ -91,7 +94,11 @@ export default function RequestInvoice({
               Waiting for payment <span>{spinProgress[spinIndex]}</span>
             </p>
             <p>Expires in {expiry}</p>
-            <button className="back-btn" onClick={handleCopyInvoice}>
+            <button
+              className="back-btn"
+              onClick={handleCopyInvoice}
+              style={{ padding: 0 }}
+            >
               [Copy Lightning Invoice]
             </button>
           </div>

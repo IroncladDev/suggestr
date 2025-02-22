@@ -91,6 +91,26 @@ export default function SuggestionTimeline({
           </div>
         </div>
       )}
+      {userResponse ? (
+        <div className="nested-item-event">
+          <span>
+            ┆<br />╰
+          </span>
+
+          <div className="item-event">
+            <div className="item-event-header">
+              <a
+                href={`https://primal.net/p/${suggestion.userPubkey}`}
+                target="_blank"
+              >
+                @{userProfile?.name ?? "unknown"}
+              </a>
+              :
+            </div>
+            <div className="item-event-content">{userResponse}</div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

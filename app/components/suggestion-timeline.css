@@ -71,3 +71,34 @@
     background-color: rgb(var(--surface1));
   }
 }
+
+textarea {
+  width: 100%;
+  color: rgb(var(--text));
+  background: rgb(var(--surface0));
+  border: solid 2px rgb(var(--surface1));
+  outline: none;
+  padding: 0 1ch;
+  font-size: 16px;
+  resize: none;
+  field-sizing: content;
+  min-height: 64px;
+  max-height: 128px;
+
+  &:focus {
+    border-color: rgba(var(--surface0), 0.5);
+    outline-offset: 4px;
+    outline: solid 2px rgb(var(--surface1));
+  }
+
+  &::placeholder {
+    color: rgb(var(--overlay2));
+  }
+
+  &:focus {
+    &::placeholder {
+      color: rgba(var(--sky), 0.8);
+    }
+  }
+}
+

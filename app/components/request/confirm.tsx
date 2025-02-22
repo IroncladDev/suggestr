@@ -88,7 +88,7 @@ export default function RequestAmount({
             <li>
               If your suggestion is <span id="highlight-red">rejected</span>, it
               will <strong>not</strong> be posted and instead get added to the{" "}
-              <Link href="/hall-of-shame">Hall of Shame</Link>. You will have
+              <Link href="/#hall-of-shame">Hall of Shame</Link>. You will have
               the option to add one additional comment to your suggestion in
               response to @{name} rejecting it
             </li>

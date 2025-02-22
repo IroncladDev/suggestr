@@ -1,0 +1,30 @@
+#complete-container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  align-items: center;
+  justify-content: center;
+
+  #complete-content {
+    display: flex;
+    flex-direction: row;
+    max-width: 700px;
+    width: 100%;
+    gap: 16px;
+
+    #invoice-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+
+      .load-p {
+        color: rgb(var(--blue));
+        font-weight: bold;
+
+        span {
+          font-weight: normal;
+        }
+      }
+    }
+  }
+}

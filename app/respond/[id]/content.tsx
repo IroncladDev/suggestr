@@ -3,8 +3,11 @@
 import SuggestionTimeline from "@/app/components/suggestion-timeline";
 import { respondToRejection } from "@/app/server/actions";
 import { Suggestion } from "@prisma/client";
+import Link from "next/link";
 import { getEventHash, UnsignedEvent, Event } from "nostr-tools";
 import { useState } from "react";
+import "./respond.css";
+import { useRouter } from "next/navigation";
 
 export default function RespondContent({
   suggestion,
@@ -16,6 +19,7 @@ export default function RespondContent({
   ownerNpub: string;
 }) {
   const [response, setResponse] = useState("");
+  const router = useRouter();
 
   const handleRespond = async () => {
     const pubkey = await window.nostr.getPublicKey();
@@ -42,24 +46,35 @@ export default function RespondContent({
       return;
     }
 
-    alert("Responded");
+    router.push("/#hall-of-shame");
   };
 
   return (
-    <div>
-      <div>
-        <div>{suggestion.content}</div>
-        <div>{suggestion.ownerRejectionComment}</div>
+    <div id="respond-container">
+      <div id="respond-content">
+        <h1>Respond to Rejection</h1>
+        <p>
+          <a href={`https://primal.net/p/${ownerNpub}`} target="_blank">
+            @{name}
+          </a>{" "}
+          rejected your suggestion. You may leave a comment below and it will
+          apear in the <Link href="/#hall-of-shame">Hall of Shame</Link>
+        </p>
         <SuggestionTimeline
           suggestion={suggestion}
           ownerNpub={ownerNpub}
           name={name}
+          userResponse={
+            <>
+              <textarea
+                value={response}
+                onChange={(e) => setResponse(e.target.value)}
+                placeholder="scaredy cat"
+              ></textarea>
+              <button onClick={handleRespond}>Submit</button>
+            </>
+          }
         />
-        <textarea
-          value={response}
-          onChange={(e) => setResponse(e.target.value)}
-        ></textarea>
-        <button onClick={handleRespond}>Respond</button>
       </div>
     </div>
   );
