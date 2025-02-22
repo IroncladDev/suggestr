@@ -15,7 +15,7 @@ import { promiseWithTimeout } from "./utils";
 import { appConfig } from "@/config";
 import { Invoice } from "@getalby/lightning-tools";
 import { Suggestion, Invoice as DBInvoice } from "@prisma/client";
-import { getProfileFromPubkey, makeHandleFromPubkey } from "../shared/nostr";
+import { makeHandleFromPubkey } from "../shared/nostr";
 
 export async function adminNostrLogin(
   event: NostrEvent,
@@ -141,13 +141,6 @@ export async function pollSuggestionPaymentStatus(
         paid: true,
       },
     });
-
-    // DM self to let me know a user has paid for a suggestion
-    const userProfile = await getProfileFromPubkey(suggestion.userPubkey);
-    await messageNpub(
-      ownerPubKey,
-      `New suggestion by @${userProfile?.name} on Suggestr. Check it out at ${new URL("/admin", process.env.NEXT_PUBLIC_SITE_URL as string)}`
-    )
 
     return "paid";
   }

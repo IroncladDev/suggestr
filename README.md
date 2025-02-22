@@ -15,7 +15,7 @@ Users must provide the post content, their nostr public key, and an NWC token in
 
 Before the owner can review the suggestion, users are required to pay an upfront percentage (defaults to 25%)
 
-Once a user has paid the upfront fee, the relevant suggestion is ready for review and the owner is notified via a self nostr dm
+Once a user has paid the upfront fee, the relevant suggestion is ready for review
 - If the owner approves the suggestion, the suggestion's content is posted to the owner's nostr page, the user is notified, and the remaining percentage of the payment is paid to the owner's lightning address via NWC
 - In order to reject a suggestion, the owner is required to provide a reason. If the owner rejects, the user is notified, and the suggestion gets moved to the Hall of Shame section. The user is given the option to add one additional comment as a response to the owner's reason to drive the final nail in the coffin (for humor purposes)
 
