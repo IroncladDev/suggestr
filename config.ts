@@ -1,14 +1,8 @@
-type AppConfigType = {
-  relays: string[];
-  upfrontRate: number;
-  baseFee: number;
-  rejectionTemplate: string;
-  approvalTemplate: string;
-  stagnantTemplate: string;
-  disclosureTemplate?: string;
-};
 
 export const appConfig: AppConfigType = {
+  /**
+   * A list of nostr relays to use when posting, fetching, and sending DMs to
+   */
   relays: [
     "wss://relay.primal.net",
     "wss://relay.damus.io",
@@ -16,6 +10,11 @@ export const appConfig: AppConfigType = {
     "wss://nos.lol",
     "wss://nostr.wine",
   ],
+  /**
+   * Upfront payment rate (decimal number between 0 and 1)
+   *
+   * Defaults to 25%
+   */
   upfrontRate: 0.25,
   baseFee: 3000,
   /**
@@ -46,4 +45,14 @@ export const appConfig: AppConfigType = {
    * {url} is the recovery URL where they can complete the payment via lightning
    */
   stagnantTemplate: `Hey {user}, your suggestion to post "{content}" has failed since the NWC payment did not go through.\n\nIf you still want me to post it, you can complete the payment via lightning at {url}`,
+};
+
+type AppConfigType = {
+  relays: string[];
+  upfrontRate: number;
+  baseFee: number;
+  rejectionTemplate: string;
+  approvalTemplate: string;
+  stagnantTemplate: string;
+  disclosureTemplate?: string;
 };

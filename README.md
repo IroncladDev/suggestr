@@ -1,71 +1,38 @@
 # Suggestr
 
-Self-hosted nostr post suggestion system
+Get paid to post what your Nostr audience REALLY wants to see
 
-# TODO: 
-- confirm and respond pages
+## Overview
 
-- animations
-- transparent background, kali bg
-- DEVPOST SUBMISSION
-- dual deployment
-- self hosting instructions
+Suggestr is designed to be a self-hosted Next.js website that allows users to pay you to post their suggestions
 
-## Problem
+### Terms
+- "owner" refers to the website owner
+- "user" refers to a person who pays the owner to post a suggestion
+- "suggestion" refers to a post that a user wants to see posted
 
-1. A nostr user identified by their npub creates a proposal for the owner to post
-2. They pay an upfront payment of `${X}% * (base + bribery fees)`
-3. They paste in their NWC connection string to complete the latter part of the payment `(base + bribery fees) - (${X}% * (base + bribery fees))`
-4. The owner approves or rejects the proposal (they can add a comment to the rejection)
+Users must provide the post content, their nostr public key, and an NWC token in order to create a suggestion
 
-5. **If approved**
-6. A request is made to the NWC string and the user is charged
-7. If successful, the user's proposal is posted
-8. The user is notified via a nostr dm
+Before the owner can review the suggestion, users are required to pay an upfront percentage (defaults to 25%)
 
-5. **If rejected**
-6. The suggestion moves to the hall of shame 
-7. The user is notified via a nostr dm with a special link
-8. They can respond to the owner's rejection comment
+Once a user has paid the upfront fee, the relevant suggestion is ready for review and the owner is notified via a self nostr dm
+- If the owner approves the suggestion, the suggestion's content is posted to the owner's nostr page, the user is notified, and the remaining percentage of the payment is paid to the owner's lightning address via NWC
+- In order to reject a suggestion, the owner is required to provide a reason. If the owner rejects, the user is notified, and the suggestion gets moved to the Hall of Shame section. The user is given the option to add one additional comment as a response to the owner's reason to drive the final nail in the coffin (for humor purposes)
 
-## Pages
-- Hall of shame for rejected post proposals
-- Pending posts shows current proposals
-- Approved posts show posts that have been approved
-- Index page shows info
-    - Fetches the user profile from nostr relays via user npub
-    - Do not expose nsec to client side
-- Admin Page
-    - Single button to sign a nostr event to log in
-    - List of all pending posts
-    - Owner can approve or reject a post
-    - For approving a post, single button
-    - For rejecting a post, the owner is prompted for a reply comment
+If the owner approves and the user's NWC payment fails, they are notified via a nostr dm and are sent a URL with a lightning invoice with the amount set to the remaining amount. Upon paying the lightning invoice, the user's suggestion is immediately posted to the owner's nostr page
 
-## .env Config Options
+## Setup
 
-- `NOSTR_NSEC` - The owner's nsec
-- `REDIS_DB_URL` - Redis database URL
+1. Ensure you have [Bun](https://bun.sh) installed
+2. Clone the respo
+3. Run `bun i` to install dependencies
+4. Fill out the values in `.env.example` and rename it to `.env`
+5. Configure the options in `config.ts` (optional)
+6. Run `bun run dev` to start the development server
 
-## Config Options (config.toml / json)
+### Deployment
 
-- `UPFRONT_RATE` - Number from 0-1 for the upfront payment fee
-- `DISCLOSURE_TEMPLATE` - Optional. Template string containing `{url}` so that the owner can disclose that they didn't post the post. If not provided, no disclosure is attached.
-- `BASE_FEE` - The base fee (in sats) for posting a proposal
-- `RELAYS` - List of nostr relays to use
-
-## DB Schema (Redis KV)
-
-- admin_session: `String | None`
-- posts: `Vec<Post>`
-    - id: `String`
-    - status: `PostStatus`
-    - content: `String`
-    - created_at: `DateTime`
-    - updated_at: `DateTime`
-    - owner_rejection_comment: `String | None`
-    - user_rejection_reply: `String | None`
-    - user_npub: `String`
-    - user_nwc: `String`
-
-- `PostStatus` - enum: `"pending" | "approved" | "rejected"`
+1. Find a postgres provider and get a database URL
+2. Use `bun run build` as the build command
+3. Use `bun run start` as the start command
+4. Deploy to a hosting provider of your choice. I recommend [Vercel](https://vercel.com)

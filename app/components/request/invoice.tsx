@@ -1,4 +1,4 @@
-import { pollRequestPaymentStatus } from "@/app/server/actions";
+import { pollSuggestionPaymentStatus } from "@/app/server/actions";
 import { Invoice } from "@getalby/lightning-tools";
 import { Invoice as DBInvoice, Suggestion } from "@prisma/client";
 import { useEffect, useState } from "react";
@@ -60,7 +60,7 @@ export default function RequestInvoice({
 
     if (suggestion) {
       interval = setInterval(async () => {
-        const pollStatus = await pollRequestPaymentStatus(suggestion.id);
+        const pollStatus = await pollSuggestionPaymentStatus(suggestion.id);
 
         if (pollStatus !== "pending") {
           setStatus(pollStatus);

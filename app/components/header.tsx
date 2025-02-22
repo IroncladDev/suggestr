@@ -1,5 +1,4 @@
 import { useProfile } from "../home";
-import { Profile } from "../server/nostr";
 import "./header.css";
 
 export default function Header({
